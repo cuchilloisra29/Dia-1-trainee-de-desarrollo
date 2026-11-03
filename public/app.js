@@ -71,8 +71,8 @@ async function enterApp() {
 
   // El admin ve el catálogo de TVmaze; el usuario normal solo ve lo que el admin agregó
   const isAdmin = state.user.role === "admin";
-  document.querySelector('[data-view="discover"]').classList.toggle("is-hidden", !isAdmin);
-  document.querySelector('[data-view="collection"]').textContent = isAdmin ? "Mi colección" : "Películas";
+  // Las pestañas solo tienen sentido para el admin (el usuario tiene una sola vista)
+  document.querySelector(".main-nav").classList.toggle("is-hidden", !isAdmin);
   document.querySelector(".intro p").textContent = isAdmin
     ? "Busca películas y series en el catálogo y elige cuáles podrán ver los usuarios."
     : "Estas son las películas y series disponibles para ti.";
