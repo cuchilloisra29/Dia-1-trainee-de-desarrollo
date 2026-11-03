@@ -69,6 +69,27 @@ a { color: var(--verde-oscuro); }
   text-decoration: none;
 }
 
+/* contenedor de pestañas + botones (en celular se vuelve el menú desplegable) */
+.menu {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+/* botón ☰, oculto en computadora */
+.menu-button {
+  display: none;
+  padding: 4px 12px;
+  border: 1px solid var(--gris);
+  border-radius: 5px;
+  background: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
 .main-nav { display: flex; gap: 5px; }
 
 .nav-link {
@@ -119,7 +140,7 @@ a { color: var(--verde-oscuro); }
 .intro p { margin: 0 0 18px; color: var(--menta); }
 
 /* Catálogo */
-.section-wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+.section-wrap { max-width: 1300px; margin: 0 auto; padding: 0 20px; }
 .catalog { padding-top: 30px; padding-bottom: 40px; }
 
 .section-heading {
@@ -181,7 +202,7 @@ a { color: var(--verde-oscuro); }
 /* Tarjetas */
 .movie-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 18px;
 }
 
@@ -190,6 +211,15 @@ a { color: var(--verde-oscuro); }
   overflow: hidden;
   background: #fff;
   border-radius: 8px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* al pasar el mouse la tarjeta se agranda un poco */
+.movie-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
 }
 
 .poster-wrap { position: relative; aspect-ratio: 2 / 3; background: #b5bfc9; }
@@ -213,6 +243,33 @@ a { color: var(--verde-oscuro); }
   color: var(--marino);
   font-size: 13px;
   font-weight: bold;
+}
+
+/* corazón de favoritos */
+.heart-button {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  color: #e74c3c;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+/* mientras se ve la sinopsis el corazón se vuelve casi transparente para no estorbar */
+.movie-card:hover .heart-button { opacity: 0.25; }
+
+/* pero si pones el mouse sobre el corazón se ve normal */
+.movie-card:hover .heart-button:hover {
+  opacity: 1;
+  transform: scale(1.15);
 }
 
 .card-overlay {
@@ -263,6 +320,26 @@ a { color: var(--verde-oscuro); }
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
+
+/* al pasar el mouse la sinopsis completa se muestra encima del póster */
+.movie-card:hover .movie-summary {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  aspect-ratio: 2 / 3; /* mismo tamaño que el póster */
+  margin: 0;
+  padding: 12px 12px 45px;
+  display: block;
+  overflow-y: auto;
+  background: rgba(30, 43, 58, 0.92);
+  color: #fff;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+/* los botones del admin quedan por encima de la sinopsis */
+.card-overlay { z-index: 2; }
 
 .load-more-wrap { text-align: center; margin-top: 25px; }
 .load-more {
@@ -334,14 +411,33 @@ a { color: var(--verde-oscuro); }
 .primary-button:hover { background: var(--marino); }
 
 /* Celular / tablet */
+@media (max-width: 1100px) {
+  .movie-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
 @media (max-width: 850px) {
   .movie-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 600px) {
   .topbar { flex-wrap: wrap; padding: 10px 15px; }
-  .main-nav { order: 3; width: 100%; }
-  .account-name { display: none; }
+
+  /* menú desplegable */
+  .menu-button { display: block; }
+  .menu {
+    display: none;
+    width: 100%;
+    flex: none;
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 10px;
+  }
+  .menu.is-open { display: flex; }
+  .main-nav { flex-direction: column; }
+  .nav-link { text-align: left; }
+  .topbar-actions { flex-direction: column; align-items: stretch; }
+  .account-chip { padding-top: 10px; border-top: 1px solid rgba(255,255,255,.2); }
+  .account-chip .btn { margin-left: auto; }
   .intro { padding: 30px 15px; }
   .catalog-toolbar { flex-direction: column; }
   .movie-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }

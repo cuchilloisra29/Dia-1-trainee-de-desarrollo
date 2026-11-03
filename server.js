@@ -30,6 +30,11 @@ db.exec(`
     source_id TEXT UNIQUE,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS favorites (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    movie_id INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, movie_id)
+  );
 `);
 
 const userCount = db.prepare("SELECT COUNT(*) AS count FROM users").get().count;
@@ -85,6 +90,10 @@ function requireAdmin(req, res, next) {
 function parseMovie(row) {
   if (!row) return null;
   return { ...row, genres: JSON.parse(row.genres) };
+}
+
+function isUniqueConstraintError(error) {
+  return error.errcode === 2067 || error.code === "ERR_SQLITE_CONSTRAINT_UNIQUE";
 }
 
 function validateMovie(input) {
@@ -179,7 +188,7 @@ app.post("/api/movies", authenticate, requireAdmin, (req, res) => {
     const movie = parseMovie(db.prepare("SELECT * FROM movies WHERE id = ?").get(result.lastInsertRowid));
     return res.status(201).json({ movie });
   } catch (error) {
-    if (error.code === "ERR_SQLITE_CONSTRAINT_UNIQUE") {
+    if (isUniqueConstraintError(error)) {
       return res.status(409).json({ error: "Este título ya está guardado en la colección." });
     }
     throw error;
@@ -203,7 +212,7 @@ app.put("/api/movies/:id", authenticate, requireAdmin, (req, res) => {
     const movie = parseMovie(db.prepare("SELECT * FROM movies WHERE id = ?").get(id));
     return res.json({ movie });
   } catch (error) {
-    if (error.code === "ERR_SQLITE_CONSTRAINT_UNIQUE") {
+    if (isUniqueConstraintError(error)) {
       return res.status(409).json({ error: "Este título ya está guardado en la colección." });
     }
     throw error;
@@ -217,6 +226,36 @@ app.delete("/api/movies/:id", authenticate, requireAdmin, (req, res) => {
   }
   const result = db.prepare("DELETE FROM movies WHERE id = ?").run(id);
   if (result.changes === 0) return res.status(404).json({ error: "No se encontró esa película." });
+  return res.status(204).end();
+});
+
+// ----- Favoritos (cada usuario tiene los suyos) -----
+
+// lista de ids de las películas favoritas del usuario
+app.get("/api/favorites", authenticate, (req, res) => {
+  const rows = db.prepare("SELECT movie_id FROM favorites WHERE user_id = ?").all(req.user.id);
+  res.json({ favorites: rows.map((row) => row.movie_id) });
+});
+
+// agregar a favoritos
+app.post("/api/favorites/:movieId", authenticate, (req, res) => {
+  const movieId = Number(req.params.movieId);
+  if (!Number.isInteger(movieId) || movieId < 1) {
+    return res.status(400).json({ error: "Identificador de película no válido." });
+  }
+  const movie = db.prepare("SELECT id FROM movies WHERE id = ?").get(movieId);
+  if (!movie) return res.status(404).json({ error: "No se encontró esa película." });
+  db.prepare("INSERT OR IGNORE INTO favorites (user_id, movie_id) VALUES (?, ?)").run(req.user.id, movieId);
+  return res.status(201).json({ movieId });
+});
+
+// quitar de favoritos
+app.delete("/api/favorites/:movieId", authenticate, (req, res) => {
+  const movieId = Number(req.params.movieId);
+  if (!Number.isInteger(movieId) || movieId < 1) {
+    return res.status(400).json({ error: "Identificador de película no válido." });
+  }
+  db.prepare("DELETE FROM favorites WHERE user_id = ? AND movie_id = ?").run(req.user.id, movieId);
   return res.status(204).end();
 });
 

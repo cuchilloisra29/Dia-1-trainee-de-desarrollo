@@ -4,6 +4,7 @@ const state = {
   view: "discover",
   shows: [],
   collection: [],
+  favorites: [], // ids de las películas favoritas del usuario
   genres: ["Todos"],
   genre: "Todos",
   page: 0,
@@ -49,6 +50,7 @@ function clearSession() {
   state.user = null;
   state.shows = [];
   state.collection = [];
+  state.favorites = [];
   state.tvController?.abort();
   localStorage.removeItem("cinedetodoToken");
   showLoginScreen();
@@ -71,8 +73,10 @@ async function enterApp() {
 
   // El admin ve el catálogo de TVmaze; el usuario normal solo ve lo que el admin agregó
   const isAdmin = state.user.role === "admin";
-  // Las pestañas solo tienen sentido para el admin (el usuario tiene una sola vista)
-  document.querySelector(".main-nav").classList.toggle("is-hidden", !isAdmin);
+  // pestañas: el admin tiene Descubrir y Mi colección; el usuario tiene Películas y Mis favoritos
+  document.querySelector('[data-view="discover"]').classList.toggle("is-hidden", !isAdmin);
+  document.querySelector('[data-view="favorites"]').classList.toggle("is-hidden", isAdmin);
+  document.querySelector('[data-view="collection"]').textContent = isAdmin ? "Mi colección" : "Películas";
   document.querySelector(".intro p").textContent = isAdmin
     ? "Busca películas y series en el catálogo y elige cuáles podrán ver los usuarios."
     : "Estas son las películas y series disponibles para ti.";
@@ -87,7 +91,38 @@ async function enterApp() {
     await loadShows();
   } else {
     state.view = "collection";
+    await loadFavorites();
     await loadCollection();
+  }
+}
+
+// ----- Favoritos -----
+
+async function loadFavorites() {
+  try {
+    const data = await request(`${API_BASE}/favorites`);
+    state.favorites = data.favorites.map(String);
+  } catch {
+    state.favorites = [];
+  }
+}
+
+function isFavorite(movie) {
+  return state.favorites.includes(movie.id);
+}
+
+async function toggleFavorite(movie) {
+  try {
+    if (isFavorite(movie)) {
+      await request(`${API_BASE}/favorites/${movie.id}`, { method: "DELETE" });
+      state.favorites = state.favorites.filter((id) => id !== movie.id);
+    } else {
+      await request(`${API_BASE}/favorites/${movie.id}`, { method: "POST" });
+      state.favorites.push(movie.id);
+    }
+    render();
+  } catch (error) {
+    setStatus(error.message);
   }
 }
 
@@ -184,7 +219,6 @@ async function loadShows({ append = false } = {}) {
     if (controller.signal.aborted) return;
     const normalized = shows.map(normalizeShow);
     state.shows = append ? [...state.shows, ...normalized] : normalized;
-    showGenres(state.shows);
     render();
   } catch (error) {
     if (error.name !== "AbortError") setStatus(error.message);
@@ -201,7 +235,13 @@ async function fetchCollection() {
   state.collection = data.movies.map(normalizeSaved);
 }
 
+// películas que el admin creó a mano (no vienen de TVmaze)
+function manualMovies() {
+  return state.collection.filter((movie) => !movie.source_id).map((movie) => ({ ...movie, manual: true }));
+}
+
 function isInCollection(item) {
+  if (item.manual) return true;
   return state.collection.some((movie) => movie.source_id && movie.source_id === item.sourceId);
 }
 
@@ -216,13 +256,24 @@ async function loadCollection() {
   }
 }
 
+// películas de la vista actual (sin filtros)
+function viewItems() {
+  if (state.view === "collection") return [...state.collection];
+  if (state.view === "favorites") return state.collection.filter(isFavorite);
+  // en "Descubrir" se muestran las de TVmaze más las que el admin creó a mano
+  return [...manualMovies(), ...state.shows];
+}
+
 function getVisibleItems() {
-  let items = state.view === "collection" ? [...state.collection] : [...state.shows];
-  if (state.view === "discover" && state.genre !== "Todos") {
+  const query = state.query.trim().toLowerCase();
+  let items = viewItems();
+  if (state.genre !== "Todos") {
     items = items.filter((item) => item.genres.includes(state.genre));
   }
-  if (state.view === "collection" && state.query.trim()) {
-    const query = state.query.trim().toLowerCase();
+  // en "Descubrir" la búsqueda la hace TVmaze, solo filtramos las creadas a mano
+  if (state.view === "discover" && query) {
+    items = items.filter((item) => !item.manual || item.title.toLowerCase().includes(query));
+  } else if (query) {
     items = items.filter((item) => item.title.toLowerCase().includes(query));
   }
   if (state.sort === "rating") {
@@ -266,6 +317,17 @@ function makeCard(item) {
     rating.className = "rating-badge";
     rating.textContent = `★ ${Number(item.rating).toFixed(1)}`;
     posterWrap.append(rating);
+  }
+
+  // botón de corazón para el usuario
+  if (state.user?.role !== "admin" && state.view !== "discover") {
+    const heart = document.createElement("button");
+    heart.className = "heart-button";
+    heart.type = "button";
+    heart.textContent = isFavorite(item) ? "♥" : "♡";
+    heart.title = isFavorite(item) ? "Quitar de favoritos" : "Agregar a favoritos";
+    heart.addEventListener("click", () => toggleFavorite(item));
+    posterWrap.append(heart);
   }
 
   const overlay = document.createElement("div");
@@ -323,10 +385,13 @@ function makeCard(item) {
 }
 
 function render() {
+  // los géneros del filtro salen de las películas de la vista actual
+  showGenres(viewItems());
   const visible = getVisibleItems();
   grid.replaceChildren(...visible.map(makeCard));
   document.querySelector("#catalogTitle").innerHTML =
     state.view === "discover" ? 'Explora el <span>catálogo</span>'
+    : state.view === "favorites" ? 'Mis <span>favoritos</span>'
     : state.user?.role === "admin" ? 'Mi <span>colección</span>'
     : 'Películas <span>disponibles</span>';
   document.querySelectorAll(".nav-link").forEach((button) => {
@@ -334,11 +399,9 @@ function render() {
     button.classList.toggle("is-active", active);
     button.setAttribute("aria-current", active ? "page" : "false");
   });
-  document.querySelector(".sort-select").classList.toggle("is-hidden", state.view === "collection");
-  filterList.classList.toggle("is-hidden", state.view === "collection");
   document.querySelector("#resultsCount").textContent =
     `${visible.length} ${visible.length === 1 ? "título" : "títulos"}`;
-  loadMoreButton.classList.toggle("is-hidden", state.view === "collection" || Boolean(state.query.trim()));
+  loadMoreButton.classList.toggle("is-hidden", state.view !== "discover" || Boolean(state.query.trim()));
   document.querySelector("#addMovieButton")?.remove();
   if (state.view === "collection" && state.user?.role === "admin") {
     const button = document.createElement("button");
@@ -350,7 +413,9 @@ function render() {
     document.querySelector(".section-heading").append(button);
   }
   if (visible.length) setStatus("");
-  else if (state.view === "collection") {
+  else if (state.view === "favorites") {
+    setStatus("Aún no tienes favoritos. Toca el ♡ de una película para agregarla aquí.");
+  } else if (state.view === "collection") {
     setStatus(state.user?.role === "admin"
       ? "Tu colección está vacía. Explora el catálogo y guarda títulos, o agrega uno manualmente."
       : "Todavía no hay películas disponibles. El administrador aún no ha agregado ninguna.");
@@ -375,8 +440,10 @@ async function saveShow(item) {
         sourceId: item.sourceId,
       }),
     });
-    state.view = "collection";
-    await loadCollection();
+    // nos quedamos en el catálogo, solo actualizamos la colección para que el botón cambie a "✓ En tu colección"
+    await fetchCollection();
+    render();
+    setStatus(`"${item.title}" se agregó a tu colección.`);
   } catch (error) {
     setStatus(error.message);
   }
@@ -419,9 +486,19 @@ document.querySelector("#clearSearch").addEventListener("click", () => {
   searchInput.value = "";
   state.query = "";
   state.page = 0;
-  if (state.view === "collection") render();
-  else loadShows();
+  if (state.view === "discover") loadShows();
+  else render();
 });
+// menú de celular: el botón ☰ lo abre y cierra
+const menu = document.querySelector("#menu");
+document.querySelector("#menuButton").addEventListener("click", () => {
+  menu.classList.toggle("is-open");
+});
+// al elegir una opción del menú, se cierra solo
+menu.addEventListener("click", (event) => {
+  if (event.target.tagName === "BUTTON") menu.classList.remove("is-open");
+});
+
 document.querySelector("#sortSelect").addEventListener("change", (event) => {
   state.sort = event.target.value;
   render();
@@ -435,14 +512,16 @@ searchInput.addEventListener("input", () => {
   searchTimer = setTimeout(() => {
     state.query = searchInput.value;
     state.page = 0;
-    if (state.view === "collection") render();
-    else loadShows();
+    if (state.view === "discover") loadShows();
+    else render();
   }, 350);
 });
 searchPanel.addEventListener("submit", (event) => event.preventDefault());
 document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
-    if (button.dataset.view === "discover" && state.user?.role !== "admin") return;
+    const isAdmin = state.user?.role === "admin";
+    if (button.dataset.view === "discover" && !isAdmin) return;
+    if (button.dataset.view === "favorites" && isAdmin) return;
     state.view = button.dataset.view;
     if (state.view === "collection") loadCollection();
     else render();

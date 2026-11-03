@@ -24,9 +24,13 @@
     <div id="app" class="is-hidden">
       <header class="topbar">
         <a class="brand" href="#">🎬 Cine de todo</a>
+        <!-- botón del menú, solo se ve en celular -->
+        <button class="menu-button" id="menuButton" aria-label="Abrir menú">☰</button>
+        <div class="menu" id="menu">
         <nav class="main-nav">
           <button class="nav-link is-active" data-view="discover">Descubrir</button>
           <button class="nav-link" data-view="collection">Mi colección</button>
+          <button class="nav-link" data-view="favorites">♥ Mis favoritos</button>
         </nav>
         <div class="topbar-actions">
           <button class="btn" id="searchToggle">Buscar</button>
@@ -35,6 +39,7 @@
             <span class="account-name" id="accountName"></span>
             <button class="btn" id="logoutButton">Salir</button>
           </div>
+        </div>
         </div>
       </header>
 
