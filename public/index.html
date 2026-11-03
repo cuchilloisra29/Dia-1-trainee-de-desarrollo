@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cine de todo</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <section class="login-screen is-hidden" id="loginScreen">
+      <form class="login-box" id="loginForm">
+        <h1>🎬 Cine de todo</h1>
+        <p>Inicia sesión para continuar</p>
+        <label for="emailInput">Correo</label>
+        <input id="emailInput" name="email" type="email" required autocomplete="username">
+        <label for="passwordInput">Contraseña</label>
+        <input id="passwordInput" name="password" type="password" required autocomplete="current-password">
+        <p class="form-error" id="loginError" role="alert"></p>
+        <button class="primary-button" type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <div id="app" class="is-hidden">
+      <header class="topbar">
+        <a class="brand" href="#">🎬 Cine de todo</a>
+        <nav class="main-nav">
+          <button class="nav-link is-active" data-view="discover">Descubrir</button>
+          <button class="nav-link" data-view="collection">Mi colección</button>
+        </nav>
+        <div class="topbar-actions">
+          <button class="btn" id="searchToggle">Buscar</button>
+          <div class="account-chip" id="accountChip">
+            <span class="avatar" id="accountAvatar"></span>
+            <span class="account-name" id="accountName"></span>
+            <button class="btn" id="logoutButton">Salir</button>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro">
+          <h1>Cine de todo</h1>
+          <p>Busca películas y series, y guarda las que más te gusten en tu colección.</p>
+          <button class="btn btn-main" id="exploreButton">Ver catálogo</button>
+        </section>
+
+        <section class="catalog section-wrap" id="catalog">
+          <div class="section-heading">
+            <h2 id="catalogTitle">Explora el <span>catálogo</span></h2>
+            <p class="results-count" id="resultsCount" aria-live="polite"></p>
+          </div>
+
+          <form class="search-panel is-hidden" id="searchPanel" role="search">
+            <label class="sr-only" for="searchInput">Buscar películas y series</label>
+            <input id="searchInput" type="search" placeholder="Escribe un título..." autocomplete="off">
+            <button type="button" class="clear-search" id="clearSearch" aria-label="Limpiar búsqueda">×</button>
+          </form>
+
+          <div class="catalog-toolbar">
+            <div class="filter-list" id="filterList"></div>
+            <label class="sort-select">Ordenar por:
+              <select id="sortSelect">
+                <option value="rating">Puntuación</option>
+                <option value="newest">Más recientes</option>
+                <option value="alphabetical">A–Z</option>
+              </select>
+            </label>
+          </div>
+          <p class="status-message" id="statusMessage" aria-live="polite">Cargando...</p>
+          <div class="movie-grid" id="movieGrid" aria-live="polite"></div>
+          <div class="load-more-wrap">
+            <button class="load-more" id="loadMore">Cargar más</button>
+          </div>
+          <p class="attribution">Datos de <a href="https://www.tvmaze.com/" target="_blank" rel="noreferrer">TVmaze</a>.</p>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>Cine de todo · 2026</p>
+      </footer>
+    </div>
+
+    <dialog class="modal" id="movieDialog" aria-labelledby="movieDialogTitle">
+      <form class="modal-card" id="movieForm">
+        <button class="modal-close" type="button" data-close aria-label="Cerrar">×</button>
+        <h2 id="movieDialogTitle">Agregar <span>título</span></h2>
+        <input type="hidden" id="movieId">
+        <input type="hidden" id="movieSourceId">
+        <label for="movieTitle">Título</label>
+        <input id="movieTitle" required maxlength="160">
+        <label for="movieYear">Año</label>
+        <input id="movieYear" maxlength="12">
+        <label for="movieRating">Puntuación (0–10)</label>
+        <input id="movieRating" type="number" min="0" max="10" step="0.1">
+        <label for="movieGenres">Géneros (separados por coma)</label>
+        <input id="movieGenres" placeholder="Drama, Comedia">
+        <label for="movieImage">URL de la imagen</label>
+        <input id="movieImage" type="url" placeholder="https://...">
+        <label for="movieSummary">Sinopsis</label>
+        <textarea id="movieSummary" rows="3" maxlength="5000"></textarea>
+        <p class="form-error" id="movieError" role="alert"></p>
+        <button class="primary-button" type="submit">Guardar</button>
+      </form>
+    </dialog>
+  </body>
+</html>
